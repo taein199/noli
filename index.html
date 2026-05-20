@@ -376,10 +376,19 @@ bgm.loop = true;
 bgm.volume = 0.4;
 let bgmStarted = false;
 
+// 기존 startBGM 함수를 지우고 이 코드로 바꾸세요!
 function startBGM() {
     if(!bgmStarted) {
-        bgm.play().catch(e => console.log("BGM play failed:", e));
-        bgmStarted = true;
+        bgm.play()
+        .then(() => {
+            // 브라우저가 재생을 허가하고 실제로 음악이 나오기 시작했을 때만 true로 변경!
+            bgmStarted = true; 
+            console.log("BGM 재생 성공!");
+        })
+        .catch(e => {
+            // 실패하면 bgmStarted가 여전히 false이므로, 다음 터치/키 입력 때 다시 시도합니다.
+            console.log("BGM 재생 차단됨 (다음 조작 시 재시도):", e);
+        });
     }
 }
 
@@ -1361,4 +1370,4 @@ requestAnimationFrame(gameLoop);
 
 </script>
 </body>
-</html>
+</html>h
