@@ -370,6 +370,32 @@ window.addEventListener('resize', () => {
 const keys = { w: false, a: false, s: false, d: false, shift: false, q: false, e: false, r: false };
 const mouse = { x: canvas.width/2, y: canvas.height/2, down: false, worldX: 0, worldY: 0 };
 
+function resolveInputKey(e) {
+    const key = e.key.toLowerCase();
+    if (keys.hasOwnProperty(key)) return key;
+
+    if (e.code) {
+        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') return 'shift';
+        if (e.code.startsWith('Key')) return e.code.slice(3).toLowerCase();
+    }
+
+    return key;
+}
+
+window.addEventListener('keydown', e => {
+    startBGM();
+    const key = resolveInputKey(e);
+    if (keys.hasOwnProperty(key)) keys[key] = true;
+});
+window.addEventListener('keyup', e => {
+    const key = resolveInputKey(e);
+    if (keys.hasOwnProperty(key)) keys[key] = false;
+});
+window.addEventListener('blur', () => {
+    Object.keys(keys).forEach(k => keys[k] = false);
+    mouse.down = false;
+});
+
 // BGM Setup
 const bgm = new Audio("FORSAKEN OST - CURTAINS_CALL (MILESTONE NOLI CHASE THEME) (VISUALIZER).mp3");
 bgm.loop = true;
@@ -392,15 +418,6 @@ function startBGM() {
     }
 }
 
-window.addEventListener('keydown', e => {
-    startBGM();
-    const key = e.key.toLowerCase();
-    if(keys.hasOwnProperty(key)) keys[key] = true;
-});
-window.addEventListener('keyup', e => {
-    const key = e.key.toLowerCase();
-    if(keys.hasOwnProperty(key)) keys[key] = false;
-});
 window.addEventListener('mousemove', e => {
     mouse.x = e.clientX;
     mouse.y = e.clientY;
@@ -563,15 +580,7 @@ class Entity {
         this.vx = 0; this.vy = 0;
         this.markedForDeletion = false;
     }
-    if (this.hallucinationTimer > 0) {
-    this.hallucinationTimer--;
-
-    if (this.hallucinationTimer <= 0) {
-        this.hallucinationStacks = 0;
-    }
-}
     update() {
-
         this.x += this.vx;
         this.y += this.vy;
     }
@@ -1378,4 +1387,4 @@ requestAnimationFrame(gameLoop);
 
 </script>
 </body>
-</html>h
+</html>
