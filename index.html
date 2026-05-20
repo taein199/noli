@@ -201,10 +201,42 @@
         #end-screen h1 { font-size: 64px; margin-bottom: 20px; text-shadow: 0 0 20px #a020f0; }
         #end-screen p { font-size: 24px; color: #fff; }
         
-        @media (max-width: 900px) or (pointer: coarse) {
+        @media (max-width: 900px), (pointer: coarse) {
+            body, html { overflow: hidden; }
+            #gameCanvas { height: 100vh; }
+            #ui-layer { padding: 10px; }
+            .stats-container { top: 12px; left: 12px; }
+            .bar-container { width: calc(100vw - 28px); max-width: 260px; height: 18px; margin-bottom: 6px; }
+            .bar-text { font-size: 12px; left: 8px; line-height: 18px; }
             .skills { display: none; }
             .tutorial { display: none; }
+            #timer-ui { font-size: 24px; top: 12px; left: 50%; transform: translateX(-50%); }
+            #enemy-ui { top: 12px; right: 12px; max-width: 42vw; font-size: 12px; opacity: 0.9; }
+            #enemy-ui .enemy-target { padding: 8px; margin-bottom: 8px; }
+            #end-screen h1 { font-size: 40px; }
+            #end-screen p { font-size: 18px; }
             #mobile-controls { display: block; }
+            #joystick-area { width: 55%; }
+            #joystick-base { width: 100px; height: 100px; }
+            #joystick-knob { width: 42px; height: 42px; }
+            .mobile-skill-btn { border-width: 3px; }
+            .mobile-skill-btn .name-label { font-size: 12px; bottom: -18px; }
+            #btn-dash { width: 80px; height: 80px; bottom: 40px; right: 110px; font-size: 34px; }
+            #btn-stab { width: 68px; height: 68px; bottom: 140px; right: 58px; font-size: 28px; }
+            #btn-q, #btn-e, #btn-r { width: 58px; height: 58px; font-size: 22px; }
+            #btn-q { bottom: 168px; right: 140px; }
+            #btn-e { bottom: 120px; right: 210px; }
+            #btn-r { bottom: 45px; right: 210px; }
+        }
+        
+        @media (max-width: 600px) {
+            .stats-container { left: 8px; top: 8px; }
+            .bar-container { width: calc(100vw - 20px); max-width: 220px; }
+            .bar-text { font-size: 11px; }
+            #timer-ui { font-size: 20px; }
+            .mobile-skill-btn { width: 60px; height: 60px; }
+            #btn-dash { width: 70px; height: 70px; right: 95px; }
+            #btn-stab { width: 58px; height: 58px; bottom: 132px; right: 50px; }
         }
         
         .mobile-skill-btn {
