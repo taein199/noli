@@ -675,7 +675,6 @@ class Enemy extends Entity {
         this.hp = 100;
         this.maxHp = 100;
         this.speed = isClone ? 4.5 : 2.5; 
-        this.hallucinationStacks = 0;
         this.isClone = isClone;
         this.target = target;
         this.state = isClone ? 'CHASE_TARGET' : 'WANDER';
@@ -683,21 +682,7 @@ class Enemy extends Entity {
         this.knifeCd = 0;
     }
     
-    addHallucination(stacks) {
-        if (this.isClone) return;
-        this.hallucinationStacks = Math.min(3, this.hallucinationStacks + stacks);
-        playGlitchSound();
-        textParticles.push(new TextParticle(this.x, this.y - 30, `Hallucination +${stacks}`, '#a020f0', 60));
-        
-        if (this.hallucinationStacks >= 2 && Math.random() < 0.5) {
-            fakeItems.push({x: this.x + (Math.random()-0.5)*100, y: this.y + (Math.random()-0.5)*100, life: 300});
-        }
-        if (this.hallucinationStacks === 3) {
-            entities.push(new Enemy(this.x + 100, this.y + 100, true, this));
-            textParticles.push(new TextParticle(this.x, this.y - 45, `CLONE DEPLOYED`, '#ff0000', 60));
-        }
-    }
-    
+
     update() {
         if(this.hp <= 0) {
             this.markedForDeletion = true;
@@ -771,7 +756,6 @@ class Enemy extends Entity {
                         this.interactTarget.progress = Math.min(100, this.interactTarget.progress + 0.2);
                         
                         if (this.interactTarget.isFake && Math.random() < 0.05) {
-                            this.addHallucination(1);
                             this.interactTarget.progress = 0;
                             this.state = 'WANDER';
                             this.interactTarget = null;
