@@ -571,6 +571,20 @@ class Entity {
     }
 }
     update() {
+        if (this.hallucinationTimer > 0) {
+            this.hallucinationTimer--;
+
+            if (this.hallucinationTimer <= 0) {
+                this.hallucinationStacks = 0;
+            }
+        }
+
+        this.x += this.vx;
+        this.y += this.vy;
+    }
+
+    draw(ctx) {}
+}        
         this.x += this.vx;
         this.y += this.vy;
     }
