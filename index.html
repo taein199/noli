@@ -563,6 +563,13 @@ class Entity {
         this.vx = 0; this.vy = 0;
         this.markedForDeletion = false;
     }
+    if (this.hallucinationTimer > 0) {
+    this.hallucinationTimer--;
+
+    if (this.hallucinationTimer <= 0) {
+        this.hallucinationStacks = 0;
+    }
+}
     update() {
         this.x += this.vx;
         this.y += this.vy;
@@ -671,17 +678,33 @@ let gameEnded = false;
 
 class Enemy extends Entity {
     constructor(x, y, isClone = false, target = null) {
-        super(x, y, 18);
-        this.hp = 100;
-        this.maxHp = 100;
-        this.speed = isClone ? 4.5 : 2.5; 
-        this.isClone = isClone;
-        this.target = target;
-        this.state = isClone ? 'CHASE_TARGET' : 'WANDER';
-        this.interactTarget = null;
-        this.knifeCd = 0;
+    super(x, y, 18);
+
+    this.hp = 100;
+    this.maxHp = 100;
+
+    this.hallucinationStacks = 0;
+    this.hallucinationTimer = 0;
+
+    this.speed = isClone ? 4.5 : 2.5; 
+    this.isClone = isClone;
+    this.target = target;
+    this.state = isClone ? 'CHASE_TARGET' : 'WANDER';
+    this.interactTarget = null;
+    this.knifeCd = 0;
+}
+    addHallucination(amount) {
+    this.hallucinationStacks += amount;
+
+    if (this.hallucinationStacks > 3) {
+        this.hallucinationStacks = 3;
     }
-    
+
+    this.hallucinationTimer = 600;
+
+    spawnParticles(this.x, this.y, 15, '#a020f0');
+    playGlitchSound();
+}
 
     update() {
         if(this.hp <= 0) {
