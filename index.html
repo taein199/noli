@@ -178,15 +178,35 @@
         }
         .tutorial span { color: #a020f0; font-weight: bold; }
         
+        #creator-tag {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.65);
+            padding: 5px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            text-shadow: 0 0 8px rgba(0,0,0,0.8);
+            letter-spacing: 1px;
+            z-index: 10;
+        }
         #timer-ui {
             position: absolute;
-            top: 20px;
+            top: 44px;
             left: 50%;
             transform: translateX(-50%);
             font-size: 32px;
             font-weight: bold;
             color: #ff0000;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 6px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
             text-shadow: 0 0 10px #ff0000;
+            z-index: 10;
         }
         #end-screen {
             position: absolute;
@@ -210,7 +230,20 @@
             .bar-text { font-size: 12px; left: 8px; line-height: 18px; }
             .skills { display: none; }
             .tutorial { display: none; }
-            #timer-ui { font-size: 24px; top: 12px; left: 50%; transform: translateX(-50%); }
+            #creator-tag { top: 8px; }
+            #timer-ui {
+                font-size: 24px;
+                top: 48px;
+                left: 50%;
+                transform: translateX(-50%);
+                color: #fff;
+                background: rgba(0, 0, 0, 0.65);
+                padding: 6px 12px;
+                border-radius: 10px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+                z-index: 10;
+            }
             #enemy-ui { top: 12px; right: 12px; max-width: 42vw; font-size: 12px; opacity: 0.9; }
             #enemy-ui .enemy-target { padding: 8px; margin-bottom: 8px; }
             #end-screen h1 { font-size: 40px; }
@@ -320,7 +353,8 @@
     <canvas id="gameCanvas"></canvas>
     
     <div id="ui-layer">
-        <div id="timer-ui">04:00</div>
+        <div id="creator-tag">김태인이 만듬</div>
+        <div id="timer-ui">03:00</div>
         
         <div id="end-screen">
             <h1 id="end-title">GAME OVER</h1>
@@ -432,7 +466,16 @@ window.addEventListener('blur', () => {
 const bgm = new Audio("FORSAKEN OST - CURTAINS_CALL (MILESTONE NOLI CHASE THEME) (VISUALIZER).mp3");
 bgm.loop = true;
 bgm.volume = 0.4;
+const oneLeftAudio = new Audio("aa.mp3");
+oneLeftAudio.volume = 0.6;
+let oneLeftPlayed = false;
 let bgmStarted = false;
+
+function playOneLeftAudio() {
+    if (oneLeftPlayed) return;
+    oneLeftPlayed = true;
+    oneLeftAudio.play().catch(() => {});
+}
 
 // 기존 startBGM 함수를 지우고 이 코드로 바꾸세요!
 function startBGM() {
@@ -715,7 +758,7 @@ class Generator extends Entity {
 }
 
 // Enemies & Clones
-let gameTime = 240 * 60;
+let gameTime = 180 * 60;
 let gameEnded = false;
 
 class Enemy extends Entity {
@@ -750,6 +793,12 @@ class Enemy extends Entity {
 
     update() {
         if(this.hp <= 0) {
+            if (!this.deathHandled) {
+                this.deathHandled = true;
+                if (!this.isClone) {
+                    gameTime += 30 * 60;
+                }
+            }
             this.markedForDeletion = true;
             spawnParticles(this.x, this.y, 20, this.isClone ? '#a020f0' : '#ff0000');
             return;
@@ -1348,6 +1397,10 @@ function gameLoop() {
     });
     for(let i=entities.length-1; i>=0; i--) {
         if(entities[i].markedForDeletion) entities.splice(i, 1);
+    }
+    
+    if (survivorsLeft === 1) {
+        playOneLeftAudio();
     }
     
     if (survivorsLeft === 0) {
