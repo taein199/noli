@@ -169,32 +169,43 @@
             top: 16px;
             right: 20px;
             display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
+            padding: 8px 10px;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 14px;
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
             z-index: 20;
             pointer-events: auto;
         }
         .control-button {
-            border: 1px solid rgba(255,255,255,0.25);
-            background: rgba(0,0,0,0.7);
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(10,10,14,0.85);
             color: #fff;
-            padding: 8px 12px;
-            border-radius: 8px;
+            padding: 7px 10px;
+            border-radius: 10px;
             cursor: pointer;
             font-size: 12px;
-            transition: background 0.2s;
+            letter-spacing: 0.4px;
+            transition: transform 0.18s ease, background 0.18s ease;
+            min-width: 78px;
+            text-align: center;
         }
         .control-button:hover {
-            background: rgba(160,32,240,0.3);
+            transform: translateY(-1px);
+            background: rgba(160,32,240,0.24);
         }
         .volume-control {
-            width: 140px;
+            width: 128px;
             display: flex;
             align-items: center;
-            background: rgba(0,0,0,0.55);
+            background: rgba(255,255,255,0.06);
             padding: 6px 8px;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px;
         }
         .volume-control input[type=range] {
             width: 100%;
@@ -211,6 +222,11 @@
             display: none;
             z-index: 1001;
             pointer-events: none;
+        }
+        .stats-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
         }
         .metric {
             margin-bottom: 8px;
@@ -283,13 +299,15 @@
         
         .tutorial {
             position: absolute;
-            bottom: 120px;
+            bottom: 180px;
             left: 20px;
-            color: rgba(255, 255, 255, 0.6);
+            max-width: 320px;
+            color: rgba(255, 255, 255, 0.72);
             font-size: 13px;
             line-height: 1.6;
+            text-shadow: 0 0 5px rgba(0,0,0,0.3);
         }
-        .tutorial span { color: #a020f0; font-weight: bold; }
+        .tutorial span { color: #a020f0; font-weight: 700; }
         
         #creator-tag {
             position: absolute;
@@ -1145,13 +1163,23 @@ class Enemy extends Entity {
     this.healTimer = 0;
     this.pendingHeal = false;
     this.pickupTarget = null;
+    this.pickupInventory = { cola: 0, medkit: 0 };
+    this.pickupMax = { cola: 1, medkit: 1 };
+    this.maxStamina = 100;
+    this.stamina = 100;
+    this.staminaRegen = 18 / 60;
+    this.staminaDrain = 18 / 60;
+    this.runSpeed = 3.0;
 
-    this.speed = isClone ? 4.5 : 2.5; 
+    this.speed = isClone ? 4.5 : 2.8; 
     this.isClone = isClone;
     this.target = target;
     this.state = isClone ? 'CHASE_TARGET' : 'WANDER';
     this.interactTarget = null;
     this.knifeCd = 0;
+    this.revivedOnce = false;
+    this.gunShotAvailable = false;
+    this.reviveEffect = null;
 }
     addHallucination(amount) {
     this.hallucinationStacks += amount;
@@ -1168,6 +1196,36 @@ class Enemy extends Entity {
 
     update() {
         if(this.hp <= 0) {
+            if (!this.isClone && !this.revivedOnce && Math.random() < 0.25) {
+                this.revivedOnce = true;
+                this.gunShotAvailable = true;
+                this.reviveEffect = Math.random() < 0.5 ? 'shoot' : 'explode';
+                this.hp = Math.max(1, this.maxHp * 0.5);
+                this.state = 'FLEE';
+                this.pickupTarget = null;
+                this.vx = 0;
+                this.vy = 0;
+                spawnParticles(this.x, this.y, 40, '#00ff88');
+                textParticles.push(new TextParticle(this.x, this.y - 24, `REVIVED!`, '#00ff88', 80));
+
+                if (this.reviveEffect === 'shoot' && this.gunShotAvailable) {
+                    this.gunShotAvailable = false;
+                    if (player) {
+                        player.stunTimer = 120;
+                        textParticles.push(new TextParticle(player.x, player.y - 30, `SHOT STUN!`, '#ffff00', 60));
+                        spawnParticles(player.x, player.y, 30, '#ffff00');
+                        playStabSound();
+                    }
+                } else if (this.reviveEffect === 'explode') {
+                    if (player) {
+                        player.stunTimer = 120;
+                        textParticles.push(new TextParticle(player.x, player.y - 30, `BOOM STUN!`, '#ff7700', 60));
+                        spawnParticles(this.x, this.y, 60, '#ff5500');
+                        playExplosionSound();
+                    }
+                }
+                return;
+            }
             if (!this.deathHandled) {
                 this.deathHandled = true;
                 if (!this.isClone) {
@@ -1211,8 +1269,30 @@ class Enemy extends Entity {
                 }
             }
 
+            if (this.state !== 'FLEE' && this.stamina < this.maxStamina) {
+                this.stamina += this.staminaRegen;
+                if (this.stamina > this.maxStamina) this.stamina = this.maxStamina;
+            }
+
+            if (this.pickupInventory.cola > 0 && this.buffTimer <= 0 && this.state === 'FLEE') {
+                this.pickupInventory.cola--;
+                this.buffTimer = 5 * 60;
+                textParticles.push(new TextParticle(this.x, this.y - 30, `COLA USED`, '#ffee33', 60));
+            }
+            if (this.pickupInventory.medkit > 0 && !this.pendingHeal && this.hp < this.maxHp * 0.75) {
+                this.pickupInventory.medkit--;
+                this.pendingHeal = true;
+                this.healTimer = 4 * 60;
+                textParticles.push(new TextParticle(this.x, this.y - 30, `MEDKIT USED`, '#ffcccc', 60));
+            }
+
             if (!this.pickupTarget || this.pickupTarget.markedForDeletion) {
-                const available = pickups.filter(p => !p.markedForDeletion);
+                const available = pickups.filter(p => {
+                    if (p.markedForDeletion) return false;
+                    if (p.type === 'cola' && this.pickupInventory.cola >= this.pickupMax.cola) return false;
+                    if (p.type === 'medkit' && this.pickupInventory.medkit >= this.pickupMax.medkit) return false;
+                    return true;
+                });
                 if (available.length > 0) {
                     this.pickupTarget = available.reduce((best, p) => {
                         const d = distance(this.x, this.y, p.x, p.y);
@@ -1224,14 +1304,23 @@ class Enemy extends Entity {
             if (this.pickupTarget) {
                 const distToPickup = distance(this.x, this.y, this.pickupTarget.x, this.pickupTarget.y);
                 if (distToPickup < 40) {
-                    if (this.pickupTarget.type === 'medkit' && !this.pendingHeal) {
-                        this.pendingHeal = true;
-                        this.healTimer = 4 * 60;
-                        textParticles.push(new TextParticle(this.x, this.y - 30, `MEDKIT`, '#ffcccc', 60));
+                    if (this.pickupTarget.type === 'medkit') {
+                        if (this.pickupInventory.medkit < this.pickupMax.medkit) {
+                            this.pickupInventory.medkit++;
+                            textParticles.push(new TextParticle(this.x, this.y - 30, `MEDKIT STORED`, '#ffcccc', 60));
+                        } else {
+                            this.pickupTarget = null;
+                            return;
+                        }
                     }
                     if (this.pickupTarget.type === 'cola') {
-                        this.buffTimer = 5 * 60;
-                        textParticles.push(new TextParticle(this.x, this.y - 30, `COLA`, '#ffee33', 60));
+                        if (this.pickupInventory.cola < this.pickupMax.cola) {
+                            this.pickupInventory.cola++;
+                            textParticles.push(new TextParticle(this.x, this.y - 30, `COLA STORED (${this.pickupInventory.cola})`, '#ffee33', 60));
+                        } else {
+                            this.pickupTarget = null;
+                            return;
+                        }
                     }
                     this.pickupTarget.markedForDeletion = true;
                     this.pickupTarget = null;
@@ -1248,7 +1337,7 @@ class Enemy extends Entity {
             if (distToPlayer < 70 && this.knifeCd <= 0) {
                 this.knifeCd = 45 * 60;
                 player.takeDamage(0);
-                player.stunTimer = 180;
+                player.stunTimer = 120;
                 spawnParticles(player.x, player.y, 20, '#ff0000');
                 playStabSound();
                 textParticles.push(new TextParticle(this.x, this.y - 30, `KNIFE HIT!`, '#ff0000', 60));
@@ -1300,7 +1389,16 @@ class Enemy extends Entity {
         
         const dist = distance(this.x, this.y, tx, ty);
         if(dist > 0) {
-            const runSpeed = this.speed + (this.buffTimer > 0 ? 1.8 : 0);
+            let runSpeed = this.speed + (this.buffTimer > 0 ? 0.3 : 0);
+            if (this.state === 'FLEE') {
+                if (this.stamina > 0) {
+                    runSpeed = this.runSpeed + (this.buffTimer > 0 ? 0.3 : 0);
+                    this.stamina -= this.staminaDrain;
+                    if (this.stamina < 0) this.stamina = 0;
+                } else {
+                    runSpeed = Math.max(1.9, this.speed * 0.9);
+                }
+            }
             this.vx = ((tx - this.x) / dist) * runSpeed;
             this.vy = ((ty - this.y) / dist) * runSpeed;
         }
@@ -1349,15 +1447,15 @@ class Player extends Entity {
     constructor() {
         super(canvas.width/2, canvas.height/2, 22);
         
-        this.baseSpeed = 2.6; 
-        this.sprintSpeed = 2.5 * 1.45; 
+        this.baseSpeed = 2.5; 
+        this.sprintSpeed = 2.5 * 1.4; 
         this.dashSpeed = 40; 
         
         this.maxHp = 1111;
         this.hp = 1111;
         this.maxStamina = 110;
         this.stamina = 110;
-        this.staminaRegen = 21 / 60;
+        this.staminaRegen = 16 / 60;
         
         this.cds = {
             stab: 0, stabMax: 108,
@@ -1487,7 +1585,7 @@ class Player extends Entity {
             const isRecharging = (!keys.shift && !this.isVoidRushing && this.stamina < this.maxStamina);
             if (isRecharging) {
                 // 서바이버 기본 속도(2.5)보다 낮게 제한
-                speed = Math.min(speed, 1.9);
+                speed = Math.min(speed, 1.8);
             }
             let moving = false;
             let mx = 0, my = 0;
@@ -1510,7 +1608,7 @@ class Player extends Entity {
 
             if(keys.shift && this.stamina > 0.5 && moving) {
                 speed = this.sprintSpeed;
-                this.stamina -= 9.5 / 60;
+                this.stamina -= 15 / 60;
                 if(Math.random() < 0.2) particles.push(new Particle(this.x, this.y, '#555', 10, 0, 0, 5));
             }
             // apply speed buff from cola
@@ -1760,7 +1858,7 @@ for(let i=0; i<7; i++) {
 for (let i = 0; i < 4; i++) {
     pickups.push(new Pickup((Math.random()-0.5) * 2000, (Math.random()-0.5) * 2000, 'medkit'));
 }
-for (let i = 0; i < 9; i++) {
+for (let i = 0; i < 7; i++) {
     pickups.push(new Pickup((Math.random()-0.5) * 2000, (Math.random()-0.5) * 2000, 'cola'));
 }
 
