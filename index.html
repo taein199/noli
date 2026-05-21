@@ -164,6 +164,82 @@
             50% { box-shadow: 0 0 24px rgba(255,255,255,0.95); transform: scale(1.08); }
             100% { box-shadow: 0 0 12px rgba(160,32,240,0.7); transform: scale(1); }
         }
+        #top-controls {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 20;
+            pointer-events: auto;
+        }
+        .control-button {
+            border: 1px solid rgba(255,255,255,0.25);
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        .control-button:hover {
+            background: rgba(160,32,240,0.3);
+        }
+        .volume-control {
+            width: 140px;
+            display: flex;
+            align-items: center;
+            background: rgba(0,0,0,0.55);
+            padding: 6px 8px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+        }
+        .volume-control input[type=range] {
+            width: 100%;
+        }
+        #pause-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 56px;
+            letter-spacing: 6px;
+            text-shadow: 0 0 22px #a020f0;
+            display: none;
+            z-index: 1001;
+            pointer-events: none;
+        }
+        .metric {
+            margin-bottom: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            color: #f5f5f5;
+            text-shadow: 0 0 6px rgba(0,0,0,0.7);
+        }
+        #help-panel {
+            position: absolute;
+            bottom: 200px;
+            left: 20px;
+            max-width: 320px;
+            color: rgba(255,255,255,0.8);
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 13px;
+            line-height: 1.5;
+            z-index: 5;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.45);
+        }
+        #help-panel strong {
+            display: block;
+            margin-bottom: 6px;
+            color: #a020f0;
+            font-size: 14px;
+        }
         #enemy-ui {
             position: absolute;
             top: 20px;
@@ -243,6 +319,22 @@
             border-radius: 10px;
             border: 1px solid rgba(255,255,255,0.2);
             text-shadow: 0 0 10px #ff0000;
+            z-index: 10;
+        }
+        #reveal-ui {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            font-weight: bold;
+            color: #00ffff;
+            background: rgba(0,0,0,0.55);
+            padding: 6px 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(0,255,255,0.2);
+            text-shadow: 0 0 10px rgba(0,255,255,0.5);
+            display: none;
             z-index: 10;
         }
         #end-screen {
@@ -392,6 +484,15 @@
     <div id="ui-layer">
         <div id="creator-tag">김태인이 만듬</div>
         <div id="timer-ui">03:00</div>
+        <div id="reveal-ui">SURVIVOR LOCATION REVEAL</div>
+        <div id="top-controls">
+            <button id="pause-btn" class="control-button">일시정지</button>
+            <button id="mute-btn" class="control-button">🔊</button>
+            <div class="volume-control">
+                <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.4">
+            </div>
+        </div>
+        <div id="pause-overlay">PAUSED</div>
         <div id="skill-overlay"></div>
         
         <div id="end-screen">
@@ -400,6 +501,7 @@
         </div>
         
         <div class="stats-container">
+            <div class="metric">Survivors: <span id="survivor-count">10</span></div>
             <div class="bar-container">
                 <div class="bar-text">HP: <span id="hp-text">1111</span> / 1111</div>
                 <div class="hp-bar" id="hp-bar"></div>
@@ -418,6 +520,13 @@
             [Q] <span>Void Rush</span>: Dash attack. Hits on 2+ hallucinated enemies explode.<br>
             [E] <span>Nova</span>: Throw Void Star. Press again to detonate (pulls enemies).<br>
             [R] <span>Observant</span>: Teleport to nearest generator & apply hallucination.
+        </div>
+
+        <div id="help-panel">
+            <strong>컨트롤 도움말</strong><br>
+            [WASD] 이동 • [Shift] 대시 • [LClick] 찌르기<br>
+            [Q] 공허질주 • [E] 노바 • [R] 관찰력<br>
+            모바일: 화면 좌측 이동 / 우측 버튼 터치
         </div>
 
         <div class="skills">
@@ -508,15 +617,32 @@ const oneLeftAudio = new Audio("aa.mp3");
 oneLeftAudio.volume = 0.6;
 let oneLeftPlayed = false;
 let bgmStarted = false;
+let bgmWasPlaying = false;
+let suppressBgmWhileOneLeft = false;
+let revealTimer = 0;
 
 function playOneLeftAudio() {
     if (oneLeftPlayed) return;
     oneLeftPlayed = true;
+    if (!bgm.paused) {
+        bgmWasPlaying = true;
+        bgm.pause();
+    }
+    suppressBgmWhileOneLeft = true;
+    gameTime = 80 * 60;
+    revealTimer = 5 * 60;
     oneLeftAudio.play().catch(() => {});
+    oneLeftAudio.onended = () => {
+        suppressBgmWhileOneLeft = false;
+        if (bgmWasPlaying && !isMuted) {
+            bgm.play().catch(() => {});
+        }
+    };
 }
 
 // 기존 startBGM 함수를 지우고 이 코드로 바꾸세요!
 function startBGM() {
+    if (suppressBgmWhileOneLeft) return;
     if(!bgmStarted) {
         bgm.play()
         .then(() => {
@@ -681,6 +807,52 @@ function playExplosionSound() { playTone(50, 'sawtooth', 0.5, 0.2); }
 function playTeleportSound() { playTone(400, 'sine', 0.3, 0.1); playGlitchSound(); }
 
 const skillOverlay = document.getElementById('skill-overlay');
+const pauseBtn = document.getElementById('pause-btn');
+const muteBtn = document.getElementById('mute-btn');
+const volumeSlider = document.getElementById('volume-slider');
+const pauseOverlay = document.getElementById('pause-overlay');
+let isPaused = false;
+let isMuted = false;
+
+function setVolume(value) {
+    bgm.volume = value;
+    oneLeftAudio.volume = value;
+}
+
+function updateMuteState() {
+    if (isMuted) {
+        bgm.muted = true;
+        muteBtn.innerText = '🔇';
+    } else {
+        bgm.muted = false;
+        muteBtn.innerText = '🔊';
+    }
+}
+
+pauseBtn.addEventListener('click', () => {
+    isPaused = !isPaused;
+    pauseOverlay.style.display = isPaused ? 'block' : 'none';
+    pauseBtn.innerText = isPaused ? '재개' : '일시정지';
+});
+
+muteBtn.addEventListener('click', () => {
+    isMuted = !isMuted;
+    updateMuteState();
+});
+
+volumeSlider.addEventListener('input', e => {
+    const value = parseFloat(e.target.value);
+    setVolume(value);
+    if (value === 0) {
+        isMuted = true;
+    } else {
+        isMuted = false;
+    }
+    updateMuteState();
+});
+
+setVolume(parseFloat(volumeSlider.value));
+updateMuteState();
 
 function animateSkillIcon(skill) {
     const icon = document.getElementById(`skill-${skill}`);
@@ -831,6 +1003,8 @@ class Generator extends Entity {
         super(x, y, 30);
         this.isFake = isFake;
         this.progress = 0;
+        this.isVanishing = false;
+        this.filledTimer = 0;
         this.name = isFake ? "GENRATOR" : "GENERATOR";
     }
     draw(ctx) {
@@ -853,12 +1027,31 @@ class Generator extends Entity {
         ctx.fillStyle = '#0f0';
         ctx.fillRect(-this.radius, -this.radius - 10, (this.radius*2) * (this.progress/100), 5);
         
+        if (this.isVanishing) {
+            const alpha = Math.max(0, this.filledTimer / 600);
+            ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.8})`;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(-this.radius - 5, -this.radius - 5, this.radius*2 + 10, this.radius*2 + 10);
+        }
+        
         ctx.fillStyle = '#fff';
         ctx.font = '10px Courier New';
         ctx.textAlign = 'center';
         ctx.fillText(this.name, 0, 5);
         
         ctx.restore();
+    }
+    update() {
+        if (this.progress >= 100 && !this.isVanishing) {
+            this.isVanishing = true;
+            this.filledTimer = 600;
+        }
+        if (this.isVanishing) {
+            this.filledTimer--;
+            if (this.filledTimer <= 0) {
+                this.markedForDeletion = true;
+            }
+        }
     }
 }
 
@@ -1065,8 +1258,11 @@ class Player extends Entity {
     takeDamage(amount) {
         if(this.invulnTimer > 0) return;
         this.hp -= amount;
+        if(this.hp < 0) this.hp = 0;
+        if(amount > 0) {
+            textParticles.push(new TextParticle(this.x, this.y - 24, `-${amount}`, '#ff5555', 50));
+        }
         applyScreenShake(5);
-        if(this.hp <= 0) this.hp = 0;
     }
     
     update() {
@@ -1130,14 +1326,17 @@ class Player extends Entity {
                         e.hp -= 50;
                         e.hallucinationStacks = 0;
                         playExplosionSound();
+                        textParticles.push(new TextParticle(e.x, e.y - 18, '-50', '#ff5555', 48));
                         
                         entities.forEach(otherE => {
                             if(otherE instanceof Enemy && distance(this.x, this.y, otherE.x, otherE.y) < 100) {
                                 otherE.hp -= 30;
+                                textParticles.push(new TextParticle(otherE.x, otherE.y - 18, '-30', '#ff5555', 48));
                             }
                         });
                     } else {
                         e.hp -= 20;
+                        textParticles.push(new TextParticle(e.x, e.y - 18, '-20', '#ff5555', 48));
                     }
                     this.cds.q = 0;
                 }
@@ -1230,6 +1429,7 @@ class Player extends Entity {
                         e.hp -= 15;
                         e.hallucinationStacks = 0;
                         spawnParticles(e.x, e.y, 10, '#000');
+                        textParticles.push(new TextParticle(e.x, e.y - 16, '-15', '#ff5555', 48));
                     }
                 }
             });
@@ -1360,11 +1560,13 @@ class VoidStar extends Entity {
                         e.vx += (this.x - e.x) * 0.05;
                         e.vy += (this.y - e.y) * 0.05;
                         e.hp -= 1;
+                        if (Math.random() < 0.15) {
+                            textParticles.push(new TextParticle(e.x, e.y - 16, '-1', '#ff9999', 32));
+                        }
                     }
                 }
             });
             spawnParticles(this.x + (Math.random()-0.5)*this.radius, this.y + (Math.random()-0.5)*this.radius, 1, '#111');
-            
             if(this.detonateTimer <= 0) {
                 this.markedForDeletion = true;
             }
@@ -1408,7 +1610,7 @@ for(let i=0; i<5; i++) {
         Math.random() < 0.5
     ));
 }
-for(let i=0; i<11; i++) {
+for(let i=0; i<7; i++) {
     entities.push(new Enemy((Math.random()-0.5) * 2000, (Math.random()-0.5) * 2000));
 }
 
@@ -1417,6 +1619,7 @@ const hpText = document.getElementById('hp-text');
 const staminaBar = document.getElementById('stamina-bar');
 const staminaText = document.getElementById('stamina-text');
 const enemyUi = document.getElementById('enemy-ui');
+const revealUi = document.getElementById('reveal-ui');
 
 function updateUI() {
     hpBar.style.width = `${(player.hp / player.maxHp) * 100}%`;
@@ -1424,6 +1627,9 @@ function updateUI() {
     
     staminaBar.style.width = `${(player.stamina / player.maxStamina) * 100}%`;
     staminaText.innerText = Math.floor(player.stamina);
+    
+    const survivorCount = entities.filter(e => e instanceof Enemy && !e.isClone && !e.markedForDeletion).length;
+    document.getElementById('survivor-count').innerText = survivorCount;
     
     const skills = ['stab', 'q', 'e', 'r'];
     skills.forEach(s => {
@@ -1449,6 +1655,13 @@ function updateUI() {
         }
     });
     
+    if (revealTimer > 0) {
+        revealUi.style.display = 'block';
+        revealUi.innerText = `SURVIVOR LOCATION REVEAL · ${Math.ceil(revealTimer / 60)}s`;
+    } else {
+        revealUi.style.display = 'none';
+    }
+
     if (hasHallucinatedEnemy) {
         if (Math.random() < 0.1) {
             enemyUi.innerHTML = `
@@ -1496,37 +1709,58 @@ function gameLoop() {
     
     if (gameEnded) return;
     
-    player.update();
-    
-    let survivorsLeft = 0;
-    entities.forEach(e => {
-        e.update();
-        if (!e.isClone && !e.markedForDeletion) survivorsLeft++;
-    });
-    for(let i=entities.length-1; i>=0; i--) {
-        if(entities[i].markedForDeletion) entities.splice(i, 1);
-    }
-    
-    if (survivorsLeft === 1) {
-        playOneLeftAudio();
-    }
-    
-    if (survivorsLeft === 0) {
-        gameEnded = true;
-        document.getElementById('end-screen').style.display = 'flex';
-        document.getElementById('end-title').innerText = "VICTORY";
-        document.getElementById('end-title').style.color = "#a020f0";
-        document.getElementById('end-subtitle').innerText = "All survivors perished in the void.";
-    }
-    
-    particles.forEach(p => p.update());
-    for(let i=particles.length-1; i>=0; i--) {
-        if(particles[i].markedForDeletion) particles.splice(i, 1);
-    }
-    
-    textParticles.forEach(p => p.update());
-    for(let i=textParticles.length-1; i>=0; i--) {
-        if(textParticles[i].markedForDeletion) textParticles.splice(i, 1);
+    if (!isPaused) {
+        player.update();
+        
+        let survivorsLeft = 0;
+        entities.forEach(e => {
+            e.update();
+            if (!e.isClone && !e.markedForDeletion) survivorsLeft++;
+        });
+        for(let i=entities.length-1; i>=0; i--) {
+            if(entities[i].markedForDeletion) entities.splice(i, 1);
+        }
+        
+        if (survivorsLeft === 1) {
+            playOneLeftAudio();
+        }
+        
+        if (survivorsLeft === 0) {
+            gameEnded = true;
+            document.getElementById('end-screen').style.display = 'flex';
+            document.getElementById('end-title').innerText = "VICTORY";
+            document.getElementById('end-title').style.color = "#a020f0";
+            document.getElementById('end-subtitle').innerText = "All survivors perished in the void.";
+        }
+        
+        particles.forEach(p => p.update());
+        for(let i=particles.length-1; i>=0; i--) {
+            if(particles[i].markedForDeletion) particles.splice(i, 1);
+        }
+        
+        textParticles.forEach(p => p.update());
+        for(let i=textParticles.length-1; i>=0; i--) {
+            if(textParticles[i].markedForDeletion) textParticles.splice(i, 1);
+        }
+        
+        if (gameTime > 0) {
+            gameTime--;
+            let seconds = Math.floor(gameTime / 60);
+            let m = Math.floor(seconds / 60);
+            let s = seconds % 60;
+            document.getElementById('timer-ui').innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            
+            if (gameTime <= 0) {
+                gameEnded = true;
+                document.getElementById('end-screen').style.display = 'flex';
+                document.getElementById('end-title').innerText = "DEFEAT";
+                document.getElementById('end-title').style.color = "#ff0000";
+                document.getElementById('end-subtitle').innerText = "The survivors escaped the trial.";
+            }
+        }
+        if (revealTimer > 0) {
+            revealTimer--;
+        }
     }
     
     ctx.save();
@@ -1534,7 +1768,38 @@ function gameLoop() {
     
     drawBackground();
     
-    generators.forEach(g => g.draw(ctx));
+    if (revealTimer > 0) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)';
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 5]);
+        entities.forEach(e => {
+            if (e instanceof Enemy && !e.isClone && !e.markedForDeletion) {
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.radius + 18, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(player.x, player.y);
+                ctx.lineTo(e.x, e.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.font = '12px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillText('SURVIVOR', e.x, e.y - e.radius - 10);
+                ctx.setLineDash([6,5]);
+            }
+        });
+        ctx.restore();
+    }
+    
+    generators.forEach(g => {
+        g.update();
+        g.draw(ctx);
+    });
+    for (let i = generators.length - 1; i >= 0; i--) {
+        if (generators[i].markedForDeletion) generators.splice(i, 1);
+    }
     
     fakeItems.forEach(f => {
         ctx.fillStyle = '#0f0';
@@ -1556,22 +1821,6 @@ function gameLoop() {
     ctx.restore();
     
     updateUI();
-    
-    if (gameTime > 0) {
-        gameTime--;
-        let seconds = Math.floor(gameTime / 60);
-        let m = Math.floor(seconds / 60);
-        let s = seconds % 60;
-        document.getElementById('timer-ui').innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        
-        if (gameTime <= 0) {
-            gameEnded = true;
-            document.getElementById('end-screen').style.display = 'flex';
-            document.getElementById('end-title').innerText = "DEFEAT";
-            document.getElementById('end-title').style.color = "#ff0000";
-            document.getElementById('end-subtitle').innerText = "The survivors escaped the trial.";
-        }
-    }
     
     requestAnimationFrame(gameLoop);
 }
